@@ -1,0 +1,16 @@
+export const ActionTypes = {
+  // kucerja3 - IR07
+  CREATE_REQUEST: "CREATE_REQUEST",
+  SUBMIT_REQUEST: "SUBMIT_REQUEST",
+
+  // ondrapa1 - IR02
+  APPROVE_REQUEST: "APPROVE_REQUEST",
+  REJECT_REQUEST: "REJECT_REQUEST",
+
+  //wittima1 - IR08 / IR04
+  LOGIN_USER: "LOGIN_USER",
+  NAVIGATE: "NAVIGATE",
+
+  // kubicvo2 - IR05
+  ADD_COMMENT: "ADD_COMMENT"
+};
