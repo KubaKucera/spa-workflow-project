@@ -1,4 +1,5 @@
 import "../tests/Request.test.js";
+import "../tests/Comment.test.js";
 
 import { initStore } from "./infra/store/store.js";
 import { initRender } from "./ui/render.js";
