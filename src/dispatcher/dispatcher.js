@@ -1,27 +1,17 @@
 import { approveApi, rejectApi } from "../infra/async/approvalApi.js";
+import { Comment } from "../entities/Comment.js";
 
-/**
- * IR02 – Dispatcher
- * ------------------
- * Hlavní vstupní bod pro business akce.
- * Přijímá:
- *  - state (aktuální stav aplikace)
- *  - action (co uživatel udělal)
- *  - dispatch (funkce pro komunikaci se store / IR01)
- */
 export function dispatcher(state, action, dispatch) {
   switch (action.type) {
-
     // =========================================================
     // APPROVE REQUEST (schválení žádosti)
     // =========================================================
     case "APPROVE_REQUEST": {
-
-      const approval = state.approvals.find(a => a.id === action.approvalId);
+      const approval = state.approvals.find((a) => a.id === action.approvalId);
 
       if (!approval) throw new Error("Approval nenalezen");
 
-      const request = state.requests.find(r => r.id === approval.requestId);
+      const request = state.requests.find((r) => r.id === approval.requestId);
 
       if (!request) throw new Error("Request nenalezen");
 
@@ -32,7 +22,6 @@ export function dispatcher(state, action, dispatch) {
       // Simulace API volání (backend)
       approveApi()
         .then(() => {
-
           // Business logika Approval entity
           // změní stav PENDING → APPROVED
           approval.approve(request.status);
@@ -43,7 +32,6 @@ export function dispatcher(state, action, dispatch) {
           dispatch({ type: "SUCCESS" });
         })
         .catch(() => {
-
           // UI notifikace o chybě
           dispatch({ type: "ERROR" });
         });
@@ -56,11 +44,10 @@ export function dispatcher(state, action, dispatch) {
     // REJECT REQUEST (zamítnutí žádosti)
     // =========================================================
     case "REJECT_REQUEST": {
-
-      const approval = state.approvals.find(a => a.id === action.approvalId);
+      const approval = state.approvals.find((a) => a.id === action.approvalId);
       if (!approval) throw new Error("Approval nenalezen");
 
-      const request = state.requests.find(r => r.id === approval.requestId);
+      const request = state.requests.find((r) => r.id === approval.requestId);
       if (!request) throw new Error("Request nenalezen");
 
       // UI loading stav
@@ -69,7 +56,6 @@ export function dispatcher(state, action, dispatch) {
       // Async simulace zamítnutí
       rejectApi()
         .then(() => {
-
           approval.reject(request.status);
 
           // Přepočet requestu podle approvals
@@ -79,13 +65,43 @@ export function dispatcher(state, action, dispatch) {
           dispatch({ type: "SUCCESS" });
         })
         .catch(() => {
-
           // error UI stav
           dispatch({ type: "ERROR" });
         });
 
       return state;
     }
+
+    // =========================================================
+    // ADD COMMENT (přidání komentáře)
+    // =========================================================
+    case "ADD_COMMENT": {
+      const user = state.currentUser;
+      if (!user || user.state !== "ACTIVE") {
+        throw new Error("Nepřihlášený uživatel");
+      }
+
+      const request = state.requests.find((r) => r.id === action.requestId);
+      if (!request) throw new Error("Request nenalezen");
+
+      // vytvoření nové instance Comment (business entita)
+      const comment = new Comment({
+        id: Date.now(),
+        requestId: action.requestId,
+        authorId: action.authorId,
+        text: action.text,
+      });
+
+      // přidání do globálního state
+      state.comments.push(comment);
+
+      return state;
+    }
+
+    case "LOADING":
+    case "SUCCESS":
+    case "ERROR":
+      return state;
 
     // =========================================================
     // DEFAULT – neznámá akce
@@ -97,26 +113,25 @@ export function dispatcher(state, action, dispatch) {
 
 /**
  * Přepočítá stav Requestu podle všech Approval entit
- * 
+ *
  * Pravidla:
  *  - pokud alespoň jeden REJECTED → Request = REJECTED
  *  - pokud všechny APPROVED → Request = APPROVED
  */
 function updateRequestState(state, requestId) {
+  const approvals = state.approvals.filter((a) => a.requestId === requestId);
 
-  const approvals = state.approvals.filter(a => a.requestId === requestId);
-
-  const request = state.requests.find(r => r.id === requestId);
+  const request = state.requests.find((r) => r.id === requestId);
 
   if (!request) return state;
 
   // pokud existuje alespoň jedno zamítnutí
-  if (approvals.some(a => a.status === "REJECTED")) {
+  if (approvals.some((a) => a.status === "REJECTED")) {
     request.status = "REJECTED";
-  } 
+  }
 
   // pokud všichni schválili
-  else if (approvals.every(a => a.status === "APPROVED")) {
+  else if (approvals.every((a) => a.status === "APPROVED")) {
     request.status = "APPROVED";
   }
 
