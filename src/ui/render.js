@@ -1,7 +1,9 @@
 import { subscribe } from "../infra/store/store.js";
 import { getAllRequests, getCommentsForRequest, getCurrentUser, canAddComment } from "../selectors/selectors.js";
 
-function renderComment(comment) {
+// import { dispatch } from "../dispatcher/dispatcher.js"; // až bude dispatch exportovaný
+
+function renderComment(comment, currentUser) {
     const li = document.createElement("li");
 
     const text = document.createElement("span");
@@ -12,10 +14,20 @@ function renderComment(comment) {
 
     li.appendChild(text);
     li.appendChild(state);
+
+    // btn Upravit - zobrazí se jen autorovi komentáře
+    // až bude dispatch hotový, odkomentovat:
+    // if (currentUser && currentUser.id === comment.authorId && comment.state !== "ARCHIVED") {
+    //     const btn = document.createElement("button");
+    //     btn.textContent = "Upravit";
+    //     btn.onclick = () => dispatch({ type: "EDIT_COMMENT", commentId: comment.id });
+    //     li.appendChild(btn);
+    // }
+
     return li;
 }
 
-function renderRequest(request) {
+function renderRequest(request, currentUser) {
     const article = document.createElement("article");
 
     const header = document.createElement("h3");
@@ -30,9 +42,18 @@ function renderRequest(request) {
         article.appendChild(nadpis);
 
         const ul = document.createElement("ul");
-        comments.forEach(c => ul.appendChild(renderComment(c)));
+        comments.forEach(c => ul.appendChild(renderComment(c, currentUser)));
         article.appendChild(ul);
     }
+
+    // btn Přidat komentář - zobrazí se přihlášenému uživateli
+    // až bude dispatch hotov odkomentovat:
+    // if (canAddComment()) {
+    //     const btn = document.createElement("button");
+    //     btn.textContent = "Přidat komentář";
+    //     btn.onclick = () => dispatch({ type: "ADD_COMMENT", requestId: request.id, authorId: currentUser.id, text: "Nový komentář" });
+    //     article.appendChild(btn);
+    // }
 
     return article;
 }
@@ -56,6 +77,17 @@ function render(rootElement) {
     }
     rootElement.appendChild(userInfo);
 
+    // přihlašovací formulář - až bude dispatch hotový, odkomentovat:
+    // if (!user) {
+    //     const input = document.createElement("input");
+    //     input.placeholder = "Zadej jméno";
+    //     const btn = document.createElement("button");
+    //     btn.textContent = "Přihlásit";
+    //     btn.onclick = () => dispatch({ type: "LOGIN_USER", id: input.value });
+    //     rootElement.appendChild(input);
+    //     rootElement.appendChild(btn);
+    // }
+
     // seznam žádostí
     const requests = getAllRequests();
 
@@ -66,7 +98,7 @@ function render(rootElement) {
         return;
     }
 
-    requests.forEach(r => rootElement.appendChild(renderRequest(r)));
+    requests.forEach(r => rootElement.appendChild(renderRequest(r, user)));
 }
 
 export function initRender(rootElement) {
