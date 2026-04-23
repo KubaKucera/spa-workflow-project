@@ -1,3 +1,5 @@
+import { Approval } from "./Approval.js";
+
 export const RequestState = {
     NEW: "NEW",
     UNDER_REVIEW: "UNDER_REVIEW",
@@ -10,50 +12,53 @@ export class Request {
         this.id = id;
         this.title = title;
         this.authorId = authorId;
-        this.state = RequestState.NEW; // Vychozi stav
-        this.approvals = []; // Vazba na instance Approval
+        this.state = RequestState.NEW;
+        this.approvals = [];
     }
 
-    // Přechod NEW -> UNDER_REVIEW (akce SUBMIT_REQUEST)
-    submit(approverIds, currentUser) {
-        // Kontrola invariantu: Pouze ACTIVE uzivatel muze vytvářet Request
-        if (!currentUser || currentUser.state !== "ACTIVE") {
-            throw new Error("Žádost může odeslat pouze aktivní uživatel.");
+    submitRequest(approverIds, user) {
+        if (!user || user.state !== "ACTIVE") {
+            throw new Error("Only active user can submit request");
         }
-        
-        // Kontrola životního cyklu
         if (this.state !== RequestState.NEW) {
-            throw new Error(`Nelze odeslat žádost ve stavu ${this.state}`);
+            throw new Error("Invalid state");
         }
 
         this.state = RequestState.UNDER_REVIEW;
 
-        /** 
-         * Odpovědnost: Vytvoření Approval při zahájeni schvalování
-         * Automaticke vytvoreni instancí Approval
-        */
-        this.approvals = approverIds.map(userId => ({
-            requestId: this.id,
-            userId: userId,
-            state: "PENDING" // Výchozi stav Approval
-        }));
+        this.approvals = approverIds.map(
+            id => new Approval(Date.now() + Math.random(), this.id, id)
+        );
     }
 
-    /** 
-     * Agregave stavů Approval a aktulizace stavu Request
-     * Implementuje invarianty schvalovacího procesu
-    */
-    evaluateStatus(currentApprovals) {
-        // Invariant: Lze menit pouze pokud Request je UNDER_REVIEW
+    evaluateApprovals(mockApprovals = null) {
         if (this.state !== RequestState.UNDER_REVIEW) return;
 
-        const hasRejected = currentApprovals.some(a => a.state === "REJECTED");
-        const allApproved = currentApprovals.length > 0 && currentApprovals.every(a => a.state === "APPROVED");
+        const approvalsToCheck = mockApprovals || this.approvals;
 
-        if (hasRejected) {
-            this.state = RequestState.REJECTED; // Invariant REJECTED
-        } else if (allApproved) {
-            this.state = RequestState.APPROVED; // Invariant APPROVED
+        const hasReject = approvalsToCheck.some(a => a.state === "REJECTED");
+        const allApproved = approvalsToCheck.every(a => a.state === "APPROVED");
+
+        if (hasReject) {
+            this.state = RequestState.REJECTED;
+        } else if (allApproved && approvalsToCheck.length > 0) {
+            this.state = RequestState.APPROVED;
         }
+    }
+
+    finalizeRequest() {
+        if (this.state === RequestState.UNDER_REVIEW) {
+            this.evaluateApprovals();
+        }
+
+        if (this.state !== RequestState.APPROVED && this.state !== RequestState.REJECTED) {
+            throw new Error("Request is not in final state");
+        }
+
+        return this.state;
+    }
+
+    isFinal() {
+        return this.state === RequestState.APPROVED || this.state === RequestState.REJECTED;
     }
 }

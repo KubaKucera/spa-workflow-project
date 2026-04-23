@@ -1,39 +1,77 @@
 import { Request, RequestState } from "../src/entities/Request.js";
 
-console.log("Spouštím testy entity Request (Jakub Kučera)...");
+console.log("Testy pro Request (Jakub Kučera)");
 
-// Pomocny "mock" objekt aktivniho uzivatele pro testy (odpovida entitě Matěje)
 const activeUser = { state: "ACTIVE" };
 
-// Test 1: Uspesny přechod NEW -> UNDER_REVIEW a vytvoření schválení
+// Test 1: odeslani zadosti
 const req1 = new Request({ id: 1, title: "Dovolená", authorId: "user1" });
-// PRIDANO: activeUser jako druhý parametr... poté i níže
-req1.submit(["approver1", "approver2"], activeUser);
+req1.submitRequest(["1", "approver2"], activeUser);
 
-console.assert(req1.state === RequestState.UNDER_REVIEW, "Chyba: Stav by měl být UNDER_REVIEW");
-console.assert(req1.approvals.length === 2, "Chyba: Měla se vytvořit 2 schválení");
+console.assert(
+    req1.state === RequestState.UNDER_REVIEW,
+    "Chyba: má být UNDER_REVIEW"
+);
 
-// Test 2: Invariant - Request je REJECTED, pokud je alespon jedno schválení zamítnuto
+console.assert(
+    req1.approvals.length === 2,
+    "Chyba: mají vzniknout 2 schválení"
+);
+
+console.log("Test 1 OK: odeslání žádosti funguje");
+
+// Test 2: zamítnutí má přednost
 const req2 = new Request({ id: 2, title: "Nákup", authorId: "user1" });
-req2.submit(["approver1"], activeUser);
-req2.evaluateStatus([{ state: "REJECTED" }]);
+req2.submitRequest(["1"], activeUser);
 
-console.assert(req2.state === RequestState.REJECTED, "Chyba: Žádost měla být REJECTED");
+// simulace rozhodnuti pres realny Approval objekt
+req2.approvals[0].state = "REJECTED";
 
-// Test 3: Invariant - Request je APPROVED pouze pokud jsou vsechna schválení APPROVED
+req2.evaluateApprovals();
+
+console.assert(
+    req2.state === RequestState.REJECTED,
+    "Chyba: má být REJECTED"
+);
+
+console.log("Test 2 OK: zamítnutí má přednost");
+
+
+// Test 3: částečné schválení
 const req3 = new Request({ id: 3, title: "Projekt", authorId: "user1" });
-req3.submit(["approver1", "approver2"], activeUser);
-req3.evaluateStatus([{ state: "APPROVED" }, { state: "PENDING" }]);
+req3.submitRequest(["1", "approver2"], activeUser);
 
-console.assert(req3.state === RequestState.UNDER_REVIEW, "Chyba: Žádost má zůstat UNDER_REVIEW, dokud nejsou všechna schválení hotová");
+// jeden schvaleny, druhy ceka
+req3.approvals[0].state = "APPROVED";
+req3.approvals[1].state = "PENDING";
 
-// Test 4: Ochrana invariantu - Neprihlaseny nebo neaktivni uživatel nemůže odeslat žádost
-const req4 = new Request({ id: 4, title: "Pokus", authorId: "user1" });
+req3.evaluateApprovals();
+
+console.assert(
+    req3.state === RequestState.UNDER_REVIEW,
+    "Chyba: má zůstat UNDER_REVIEW"
+);
+
+console.log("Test 3 OK: čeká se na všechna schválení");
+
+// Test 4: neaktivní uživatel
 try {
-    req4.submit(["approver1"], { state: "ANONYMOUS" });
-    console.log("Chyba: Test selhal! System měl vyhodit chybu pro neaktivniho uživatele.");
-} catch (e) {
-    console.log("Test4 OK: System spravne zablokoval neaktivního uživatele.");
+    const req4 = new Request({ id: 4, title: "Pokus", authorId: "user1" });
+    req4.submitRequest(["1"], { state: "ANONYMOUS" });
+    console.error("Test 4 SELHAL");
+} catch {
+    console.log("Test 4 OK: blokace neaktivního uživatele");
 }
 
-console.log("Testy entity Request dokončeny.");
+
+// Test 5: dvojité odeslání
+try {
+    const req5 = new Request({ id: 5, title: "Duplikát", authorId: "user1" });
+    req5.submitRequest(["1"], activeUser);
+    req5.submitRequest(["1"], activeUser);
+    console.error("Test 5 SELHAL");
+} catch {
+    console.log("Test 5 OK: nelze odeslat žádost podruhé");
+}
+
+console.log("Request testy dokončeny.\n");

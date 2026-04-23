@@ -1,40 +1,28 @@
 export const UserState = {
-    ANONYMOUS: 'ANONYMOUS',
-    AUTHENTICATED: 'AUTHENTICATED',
-    ACTIVE: 'ACTIVE'
-};
-
-export const UserRole = {
-    REQUESTER: 'žadatel',
-    APPROVER: 'schvalovatel'
+    ANONYMOUS: "ANONYMOUS",
+    AUTHENTICATED: "AUTHENTICATED",
+    ACTIVE: "ACTIVE"
 };
 
 export class User {
-    constructor() {
+    constructor(id, name, role) {
+        this.id = id;
+        this.name = name;
+        this.role = role;
         this.state = UserState.ANONYMOUS;
-        this.role = null;
     }
 
-   
-    
-    transitionToAuthenticated(role) {
-       
-        if (this.state === UserState.ANONYMOUS) {
-            this.state = UserState.AUTHENTICATED;
-            this.role = Object.values(UserRole).includes(role) ? role : UserRole.REQUESTER;
+    login() {
+        if (this.state !== UserState.ANONYMOUS) {
+            throw new Error("Already logged in");
         }
+        this.state = UserState.AUTHENTICATED;
     }
 
-    transitionToActive() {
-        
-        if (this.state === UserState.AUTHENTICATED) {
-            this.state = UserState.ACTIVE;
+    activate() {
+        if (this.state !== UserState.AUTHENTICATED) {
+            throw new Error("Cannot activate");
         }
-    }
-
-    transitionToAnonymous() {
-        
-        this.state = UserState.ANONYMOUS;
-        this.role = null;
+        this.state = UserState.ACTIVE;
     }
 }

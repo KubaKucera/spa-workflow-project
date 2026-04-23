@@ -1,139 +1,196 @@
-import { approveApi, rejectApi } from "../infra/async/approvalApi.js";
+import { updateState, getState } from "../infra/store/store.js";
+import { Request } from "../entities/Request.js";
 import { Comment } from "../entities/Comment.js";
+import { approveApi, rejectApi } from "../infra/api/approvalApi.js";
+import { ActionTypes } from "../actions/actionTypes.js";
 
-export function dispatcher(state, action, dispatch) {
-  switch (action.type) {
-    // =========================================================
-    // APPROVE REQUEST (schválení žádosti)
-    // =========================================================
-    case "APPROVE_REQUEST": {
-      const approval = state.approvals.find((a) => a.id === action.approvalId);
+export function dispatch(action) {
+  const state = getState();
 
-      if (!approval) throw new Error("Approval nenalezen");
-
-      const request = state.requests.find((r) => r.id === approval.requestId);
-
-      if (!request) throw new Error("Request nenalezen");
-
-      // IR03 – začátek async operace
-      // UI se přepne do loading stavu
-      dispatch({ type: "LOADING" });
-
-      // Simulace API volání (backend)
-      approveApi()
-        .then(() => {
-          // Business logika Approval entity
-          // změní stav PENDING → APPROVED
-          approval.approve(request.status);
-
-          updateRequestState(state, request.id);
-
-          // UI notifikace o úspěchu
-          dispatch({ type: "SUCCESS" });
-        })
-        .catch(() => {
-          // UI notifikace o chybě
-          dispatch({ type: "ERROR" });
+  try {
+    switch (action.type) {
+      
+      // CREATE REQUEST      
+      case ActionTypes.CREATE_REQUEST: {
+        const request = new Request({
+          id: Date.now(),
+          title: action.payload.title,
+          authorId: state.currentUser.id
         });
 
-      // důležité: state se nemění okamžitě (async flow)
-      return state;
-    }
-
-    // =========================================================
-    // REJECT REQUEST (zamítnutí žádosti)
-    // =========================================================
-    case "REJECT_REQUEST": {
-      const approval = state.approvals.find((a) => a.id === action.approvalId);
-      if (!approval) throw new Error("Approval nenalezen");
-
-      const request = state.requests.find((r) => r.id === approval.requestId);
-      if (!request) throw new Error("Request nenalezen");
-
-      // UI loading stav
-      dispatch({ type: "LOADING" });
-
-      // Async simulace zamítnutí
-      rejectApi()
-        .then(() => {
-          approval.reject(request.status);
-
-          // Přepočet requestu podle approvals
-          updateRequestState(state, request.id);
-
-          // success UI stav
-          dispatch({ type: "SUCCESS" });
-        })
-        .catch(() => {
-          // error UI stav
-          dispatch({ type: "ERROR" });
+        updateState({
+          requests: [...state.requests, request]
         });
 
-      return state;
-    }
+        break;
+      }
+      
+      // SUBMIT REQUEST (NEW → UNDER_REVIEW)      
+      case ActionTypes.SUBMIT_REQUEST: {
+        const request = state.requests.find(
+          r => r.id === action.payload.requestId
+        );
 
-    // =========================================================
-    // ADD COMMENT (přidání komentáře)
-    // =========================================================
-    case "ADD_COMMENT": {
-      const user = state.currentUser;
-      if (!user || user.state !== "ACTIVE") {
-        throw new Error("Nepřihlášený uživatel");
+        if (!request) throw new Error("Request not found");
+
+        // BUSINESS LOGIKA: Pro ucely testovani a obhajoby nastavujeme 
+        // schvalovatel John Doe (ID "1"), aby mohl zadost sam schvalit do finalniho stavu.
+        request.submitRequest(["1"], state.currentUser);
+
+        updateState({
+          requests: state.requests.map(r =>
+            r.id === request.id ? request : r // Predame instanci (ne kopii), aby zustaly metody
+          ),
+          approvals: [
+            ...state.approvals,
+            ...request.approvals.filter(
+              a => !state.approvals.some(ex => ex.id === a.id)
+            )
+          ]
+        });
+
+        break;
+      }
+      
+      // APPROVE / REJECT (ASYNC FLOW)      
+      case ActionTypes.APPROVE_REQUEST:
+      case ActionTypes.REJECT_REQUEST: {
+
+        const approval = state.approvals.find(
+          a => a.id === action.payload.approvalId
+        );
+
+        if (!approval) throw new Error("Approval not found");
+
+        const request = state.requests.find(
+          r => r.id === approval.requestId
+        );
+
+        if (!request) throw new Error("Request not found");
+
+        updateState({ loading: true });
+
+        const apiCall =
+          action.type === ActionTypes.APPROVE_REQUEST
+            ? approveApi
+            : rejectApi;
+
+        apiCall(request.id)
+          .then(() => {
+
+            // business logika v entitach
+            if (action.type === ActionTypes.APPROVE_REQUEST) {
+              approval.approve(request.state, state.currentUser);
+            } else {
+              approval.reject(request.state, state.currentUser);
+            }
+
+            request.evaluateApprovals();
+
+            // archivace komentaru po final stavu
+            if (request.isFinal()) {
+              state.comments
+                .filter(c => c.requestId === request.id)
+                .forEach(c => c.archiveComment());
+            }
+
+            updateState({
+              requests: state.requests.map(r =>
+                r.id === request.id ? request : r
+              ),
+
+              approvals: state.approvals.map(a =>
+                a.id === approval.id ? approval : a
+              ),
+
+              comments: [...state.comments],
+              loading: false
+            });
+          })
+          .catch(err => {
+            updateState({
+              loading: false,
+              error: err.message
+            });
+          });
+
+        break;
+      }
+      
+      // COMMENTS      
+      case ActionTypes.ADD_COMMENT: {
+        const comment = new Comment({
+          id: Date.now(),
+          requestId: action.payload.requestId,
+          authorId: state.currentUser.id,
+          text: action.payload.text
+        });
+
+        updateState({
+          comments: [...state.comments, comment]
+        });
+
+        break;
       }
 
-      const request = state.requests.find((r) => r.id === action.requestId);
-      if (!request) throw new Error("Request nenalezen");
+      case ActionTypes.EDIT_COMMENT: {
+        const comment = state.comments.find(
+          c => c.id === action.payload.commentId
+        );
 
-      // vytvoření nové instance Comment (business entita)
-      const comment = new Comment({
-        id: Date.now(),
-        requestId: action.requestId,
-        authorId: action.authorId,
-        text: action.text,
-      });
+        if (!comment) throw new Error("Comment not found");
 
-      // přidání do globálního state
-      state.comments.push(comment);
+        comment.editComment(action.payload.text, state.currentUser);
 
-      return state;
+        updateState({
+          comments: [...state.comments]
+        });
+
+        break;
+      }
+
+      case ActionTypes.ARCHIVE_COMMENT: {
+        const comment = state.comments.find(
+          c => c.id === action.payload.commentId
+        );
+
+        if (!comment) throw new Error("Comment not found");
+
+        comment.archiveComment();
+
+        updateState({
+          comments: [...state.comments]
+        });
+
+        break;
+      }
+
+      // LOGIN USER (prijeti identity z IR08)
+      case ActionTypes.LOGIN_USER: {
+        updateState({
+          currentUser: action.payload.user,
+          isAuthenticated: true
+        });
+
+        break;
+      }
+      
+      // NAVIGATION (IR04)      
+      case ActionTypes.NAVIGATE: {
+        updateState({
+          currentRoute: action.payload.path
+        });
+
+        break;
+      }
+
+      default:
+        console.warn("Unknown action:", action.type);
     }
 
-    case "LOADING":
-    case "SUCCESS":
-    case "ERROR":
-      return state;
-
-    // =========================================================
-    // DEFAULT – neznámá akce
-    // =========================================================
-    default:
-      return state;
+  } catch (err) {
+    updateState({
+      error: err.message
+    });
   }
-}
-
-/**
- * Přepočítá stav Requestu podle všech Approval entit
- *
- * Pravidla:
- *  - pokud alespoň jeden REJECTED → Request = REJECTED
- *  - pokud všechny APPROVED → Request = APPROVED
- */
-function updateRequestState(state, requestId) {
-  const approvals = state.approvals.filter((a) => a.requestId === requestId);
-
-  const request = state.requests.find((r) => r.id === requestId);
-
-  if (!request) return state;
-
-  // pokud existuje alespoň jedno zamítnutí
-  if (approvals.some((a) => a.status === "REJECTED")) {
-    request.status = "REJECTED";
-  }
-
-  // pokud všichni schválili
-  else if (approvals.every((a) => a.status === "APPROVED")) {
-    request.status = "APPROVED";
-  }
-
-  return state;
 }

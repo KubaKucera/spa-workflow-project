@@ -2,41 +2,33 @@
 // Reprezentuje rozhodnutí jednoho schvalovatele
 export class Approval {
   constructor(id, requestId, approverId) {
-    this.id = id;                 // unikátní ID schválení
-    this.requestId = requestId;   // vazba na Request
-    this.approverId = approverId; // kdo schvaluje
-    this.status = "PENDING";      // výchozí stav
+    this.id = id;
+    this.requestId = requestId;
+    this.approverId = approverId;
+    this.state = "PENDING";
   }
 
-  // schválení žádosti
-  approve(requestStatus) {
-    // kontrola, že rozhodnutí ještě nepadlo
-    if (this.status !== "PENDING") {
-      throw new Error("Approval už bylo rozhodnuto");
+  #checkAuthorization(user) {
+    if (!user || user.state !== "ACTIVE" || user.role !== "APPROVER") {
+      throw new Error("Unauthorized");
     }
-
-    // kontrola stavu requestu
-    if (requestStatus !== "UNDER_REVIEW") {
-      throw new Error("Request není ve správném stavu");
-    }
-
-    // změna stavu
-    this.status = "APPROVED";
   }
 
-  // zamítnutí žádosti
-  reject(requestStatus) {
-    // kontrola, že rozhodnutí ještě nepadlo
-    if (this.status !== "PENDING") {
-      throw new Error("Approval už bylo rozhodnuto");
-    }
+  approve(requestStatus, user) {
+    this.#checkAuthorization(user);
 
-    // kontrola stavu requestu
-    if (requestStatus !== "UNDER_REVIEW") {
-      throw new Error("Request není ve správném stavu");
-    }
+    if (this.state !== "PENDING") throw new Error("Already decided");
+    if (requestStatus !== "UNDER_REVIEW") throw new Error("Invalid request");
 
-    // změna stavu
-    this.status = "REJECTED";
+    this.state = "APPROVED";
+  }
+
+  reject(requestStatus, user) {
+    this.#checkAuthorization(user);
+
+    if (this.state !== "PENDING") throw new Error("Already decided");
+    if (requestStatus !== "UNDER_REVIEW") throw new Error("Invalid request");
+
+    this.state = "REJECTED";
   }
 }

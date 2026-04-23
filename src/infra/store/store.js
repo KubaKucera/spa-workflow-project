@@ -1,15 +1,16 @@
-// Návrh globálniho stavu
 let state = {
     requests: [],
     approvals: [],
     comments: [],
-    users: [],
-    currentUser: null
+    currentUser: null,
+    currentRoute: "home",
+    loading: false,
+    error: null
 };
 
 let listeners = [];
 
-// Vrací kopii aktualniho stavu pro Selektory (IR05)
+// Vraci kopii aktualniho stavu pro Selektory (IR05)
 export function getState() {
     return { ...state };
 }
@@ -19,16 +20,21 @@ export function getState() {
  * Po zmeně upozorní všechny odběratele (typicky Render IR06)
 */
 export function updateState(updates) {
-    state = { ...state, ...updates };
-    listeners.forEach(listener => listener(state));
+    state = {
+        ...state,
+        ...updates
+    };
+
+    // Upozornime UI na zmenu
+    listeners.forEach(l => l({ ...state }));
 }
 
-// Umožnuje UI (Renderu) přihlásit se k odberu změn
+// Umoznuje UI (Renderu) prihlasit se k odberu změn
 export function subscribe(listener) {
     listeners.push(listener);
 }
 
-// Inicializace stavu (napr. po načtení aplikace)
+// Inicializace stavu (napr. po nacteni aplikace)
 export function initStore(initialData) {
     updateState(initialData);
 }

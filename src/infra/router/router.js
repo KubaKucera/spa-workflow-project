@@ -1,27 +1,16 @@
-export class Router {
-    constructor(dispatcher) {
-        this.dispatcher = dispatcher;
-       
-        window.addEventListener('popstate', () => this.syncUrlWithState());
-    }
+import { dispatch } from "../../dispatcher/dispatcher.js";
+import { ActionTypes } from "../../actions/actionTypes.js";
 
- 
-    syncUrlWithState() {
-        const url = new URL(window.location.href);
-        const path = url.pathname;
-        
-        
-        const params = Object.fromEntries(url.searchParams.entries());
+export function initRouter() {
+    const sync = () => {
+        const path = window.location.hash.replace("#", "") || "home";
 
-  
-        this.dispatcher.dispatch('ACTION_ROUTE_CHANGED', { path, params });
-    }
+        dispatch({
+            type: ActionTypes.NAVIGATE,
+            payload: { path }
+        });
+    };
 
-    navigate(path, params = {}) {
-        const url = new URL(path, window.location.origin);
-        Object.keys(params).forEach(key => url.searchParams.append(key, params[key]));
-        
-        window.history.pushState({}, '', url);
-        this.syncUrlWithState();
-    }
+    window.addEventListener("hashchange", sync);
+    sync();
 }
