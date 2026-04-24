@@ -1,4 +1,4 @@
-import { Comment, CommentState } from "../src/entities/Comment.js";
+import { Comment, CommentState } from "../../src/entities/Comment.js";
 
 console.log("Testy pro Comment (Vojtěch Kubíček)");
 

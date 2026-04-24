@@ -1,7 +1,7 @@
-import "../tests/Request.test.js";
-import "../tests/Comment.test.js";
-import "../tests/Approval.test.js";
-import "../tests/User.test.js";
+import "../tests/entities/Request.test.js";
+import "../tests/entities/Comment.test.js";
+import "../tests/entities/Approval.test.js";
+import "../tests/entities/User.test.js";
 
 import { initStore } from "./infra/store/store.js";
 import { initRouter } from "./infra/router/router.js";

@@ -1,4 +1,4 @@
-import { Request, RequestState } from "../src/entities/Request.js";
+import { Request, RequestState } from "../../src/entities/Request.js";
 
 console.log("Testy pro Request (Jakub Kučera)");
 

@@ -1,4 +1,4 @@
-import { Approval } from "../src/entities/Approval.js";
+import { Approval } from "../../src/entities/Approval.js";
 
 console.log("Testy pro Approval (Pavel Ondráček)");
 
