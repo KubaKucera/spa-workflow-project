@@ -20,11 +20,7 @@ export function getState() {
  * Po zmeně upozorní všechny odběratele (typicky Render IR06)
 */
 export function updateState(updates) {
-    state = {
-        ...state,
-        ...updates
-    };
-
+    state = { ...state, ...updates };
     // Upozornime UI na zmenu
     listeners.forEach(l => l({ ...state }));
 }

@@ -4,7 +4,8 @@ export const RequestState = {
     NEW: "NEW",
     UNDER_REVIEW: "UNDER_REVIEW",
     APPROVED: "APPROVED",
-    REJECTED: "REJECTED"
+    REJECTED: "REJECTED",
+    DELETED: "DELETED"
 };
 
 export class Request {
@@ -25,7 +26,6 @@ export class Request {
         }
 
         this.state = RequestState.UNDER_REVIEW;
-
         this.approvals = approverIds.map(
             id => new Approval(Date.now() + Math.random(), this.id, id)
         );
@@ -35,7 +35,6 @@ export class Request {
         if (this.state !== RequestState.UNDER_REVIEW) return;
 
         const approvalsToCheck = mockApprovals || this.approvals;
-
         const hasReject = approvalsToCheck.some(a => a.state === "REJECTED");
         const allApproved = approvalsToCheck.every(a => a.state === "APPROVED");
 
@@ -50,7 +49,6 @@ export class Request {
         if (this.state === RequestState.UNDER_REVIEW) {
             this.evaluateApprovals();
         }
-
         if (this.state !== RequestState.APPROVED && this.state !== RequestState.REJECTED) {
             throw new Error("Request is not in final state");
         }
@@ -60,5 +58,18 @@ export class Request {
 
     isFinal() {
         return this.state === RequestState.APPROVED || this.state === RequestState.REJECTED;
+    }
+
+    deleteRequest(user) {
+        if (!user || user.state !== "ACTIVE") {
+            throw new Error("Pouze aktivní uživatel může smazat žádost.");
+        }
+        if (this.authorId !== user.id) {
+            throw new Error("Pouze autor může smazat tuto žádost.");
+        }
+        if (this.state !== RequestState.NEW) {
+            throw new Error("Nelze smazat žádost, která již byla odeslána ke schválení.");
+        }
+        this.state = RequestState.DELETED;
     }
 }

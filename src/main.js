@@ -9,24 +9,32 @@ import { initAuth } from "./infra/auth/auth.js";
 import { initRender } from "./ui/render.js";
 import { Request } from "./entities/Request.js";
 
+if (!window.location.hash || window.location.hash === "#") {
+    window.location.hash = "home";
+}
+
 // IR01 – inicializace store s instanci Requestu
 const initialRequests = [
-    new Request({ id: 1, title: "Dovolená", authorId: "1" }),
-    new Request({ id: 2, title: "Nákup notebooku", authorId: "1" }),
-    new Request({ id: 3, title: "Home office", authorId: "2" })
+    new Request({ id: 1, title: "Žádost o nákup monitoru", authorId: "applicant2" }),
+    new Request({ id: 2, title: "Schválení rozpočtu na marketing", authorId: "applicant1" }),
+    new Request({ id: 3, title: "Proplacení cestovních nákladů", authorId: "applicant2" }),
+    new Request({ id: 4, title: "Žádost o nový firemní notebook", authorId: "applicant1" }),    
 ];
 
 initStore({
     requests: initialRequests,
     approvals: [],
     comments: [],
-    users: []
+    currentUser: null, // Vychozi stav, ktery initAuth() ihned prepise
+    currentRoute: "home",
+    loading: false,
+    error: null
 });
-
-initRouter();
-initAuth();
 
 const root = document.getElementById("app");
 initRender(root);
 
-console.log("Aplikace byla úspěšně inicializována.");
+initRouter();
+initAuth();
+
+console.log("Aplikace byla úspěšně spuštěna a inicializována.");

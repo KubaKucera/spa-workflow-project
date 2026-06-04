@@ -4,7 +4,7 @@ import { User } from "../../entities/User.js";
 
 export function initAuth() {
     // Aplikace striktni business logiky
-    const user = new User("1", "John Doe", "APPROVER");
+    const user = new User("approver1", "Aleš Král", "APPROVER");
     
     // Provedeni nutnych prechodu ve stavovem automatu
     user.login(); // ANONYMOUS -> AUTHENTICATED

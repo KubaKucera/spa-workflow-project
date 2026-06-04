@@ -1,0 +1,26 @@
+.approve-btn {
+    background-color: #0d9488;
+    border-color: #0f766e;
+    color: white;
+}
+
+.approve-btn:hover {
+    background-color: #0f766e;
+}
+
+.delete-btn,
+.reject-btn {
+    background-color: #e11d48;
+    border-color: #be123c;
+    color: white;
+}
+
+.delete-btn:hover,
+.reject-btn:hover {
+    background-color: #be123c;
+}
+
+.logout-btn {
+    font-size: 0.9rem;
+    white-space: nowrap;
+}

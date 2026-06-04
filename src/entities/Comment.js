@@ -1,7 +1,8 @@
 export const CommentState = {
   ACTIVE: "ACTIVE",
   EDITED: "EDITED",
-  ARCHIVED: "ARCHIVED"
+  ARCHIVED: "ARCHIVED",
+  DELETED: "DELETED"
 };
 
 export class Comment {
@@ -13,30 +14,36 @@ export class Comment {
     this.state = CommentState.ACTIVE;
   }
 
-  addComment(request, user, text) {
-    if (!user || user.state !== "ACTIVE") {
-      throw new Error("Only active user");
-    }
-
-    this.requestId = request.id;
-    this.authorId = user.id;
-    this.text = text;
-    this.state = CommentState.ACTIVE;
-  }
-
   editComment(newText, user) {
-    if (user.id !== this.authorId) {
+    if (!user || user.id !== this.authorId) {
       throw new Error("Not author");
     }
     if (this.state === CommentState.ARCHIVED) {
       throw new Error("Archived comment");
     }
-
+    if (this.state === CommentState.DELETED) {
+      throw new Error("Deleted comment");
+    }
     this.text = newText;
     this.state = CommentState.EDITED;
   }
 
   archiveComment() {
-    this.state = CommentState.ARCHIVED;
+    if (this.state !== CommentState.DELETED) {
+      this.state = CommentState.ARCHIVED;
+    }
+  }
+
+  deleteComment(user) {
+    if (!user || user.state !== "ACTIVE") {
+      throw new Error("Pouze aktivní uživatel může smazat komentář.");
+    }
+    if (this.authorId !== user.id) {
+      throw new Error("Pouze autor může smazat tento komentář.");
+    }
+    if (this.state === CommentState.ARCHIVED) {
+      throw new Error("Archivovaný komentář již nelze smazat.");
+    }
+    this.state = CommentState.DELETED;
   }
 }

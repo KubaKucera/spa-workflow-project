@@ -9,85 +9,56 @@ export function dispatch(action) {
 
   try {
     switch (action.type) {
-      
-      // CREATE REQUEST      
       case ActionTypes.CREATE_REQUEST: {
         const request = new Request({
           id: Date.now(),
           title: action.payload.title,
           authorId: state.currentUser.id
         });
-
-        updateState({
-          requests: [...state.requests, request]
-        });
-
+        updateState({ requests: [...state.requests, request] });
         break;
       }
       
-      // SUBMIT REQUEST (NEW → UNDER_REVIEW)      
       case ActionTypes.SUBMIT_REQUEST: {
-        const request = state.requests.find(
-          r => r.id === action.payload.requestId
-        );
-
+        const request = state.requests.find(r => r.id === action.payload.requestId);
         if (!request) throw new Error("Request not found");
 
-        // BUSINESS LOGIKA: Pro ucely testovani a obhajoby nastavujeme 
-        // schvalovatel John Doe (ID "1"), aby mohl zadost sam schvalit do finalniho stavu.
-        request.submitRequest(["1"], state.currentUser);
+        request.submitRequest(action.payload.approverIds, state.currentUser);
 
         updateState({
-          requests: state.requests.map(r =>
-            r.id === request.id ? request : r // Predame instanci (ne kopii), aby zustaly metody
-          ),
-          approvals: [
-            ...state.approvals,
-            ...request.approvals.filter(
-              a => !state.approvals.some(ex => ex.id === a.id)
-            )
-          ]
+          requests: state.requests.map(r => r.id === request.id ? request : r),
+          approvals: [...state.approvals, ...request.approvals]
         });
-
         break;
       }
       
-      // APPROVE / REJECT (ASYNC FLOW)      
       case ActionTypes.APPROVE_REQUEST:
       case ActionTypes.REJECT_REQUEST: {
-
-        const approval = state.approvals.find(
-          a => a.id === action.payload.approvalId
-        );
-
+        const approval = state.approvals.find(a => a.id === action.payload.approvalId);
         if (!approval) throw new Error("Approval not found");
 
-        const request = state.requests.find(
-          r => r.id === approval.requestId
-        );
-
+        const request = state.requests.find(r => r.id === approval.requestId);
         if (!request) throw new Error("Request not found");
 
-        updateState({ loading: true });
-
-        const apiCall =
-          action.type === ActionTypes.APPROVE_REQUEST
-            ? approveApi
-            : rejectApi;
-
+        updateState({ loading: true, error: null });
+        const apiCall = action.type === ActionTypes.APPROVE_REQUEST ? approveApi : rejectApi;
+        
         apiCall(request.id)
           .then(() => {
+            const updatedApprovals = state.approvals.map(a => {
+              if (a.id === approval.id) {
+                if (action.type === ActionTypes.APPROVE_REQUEST) {
+                  a.approve(request.state, state.currentUser);
+                } else {
+                  a.reject(request.state, state.currentUser);
+                }
+              }
+              return a;
+            });
 
-            // business logika v entitach
-            if (action.type === ActionTypes.APPROVE_REQUEST) {
-              approval.approve(request.state, state.currentUser);
-            } else {
-              approval.reject(request.state, state.currentUser);
-            }
-
+            request.approvals = updatedApprovals.filter(a => a.requestId === request.id);
             request.evaluateApprovals();
 
-            // archivace komentaru po final stavu
             if (request.isFinal()) {
               state.comments
                 .filter(c => c.requestId === request.id)
@@ -95,29 +66,30 @@ export function dispatch(action) {
             }
 
             updateState({
-              requests: state.requests.map(r =>
-                r.id === request.id ? request : r
-              ),
-
-              approvals: state.approvals.map(a =>
-                a.id === approval.id ? approval : a
-              ),
-
+              requests: state.requests.map(r => r.id === request.id ? request : r),
+              approvals: updatedApprovals,
               comments: [...state.comments],
               loading: false
             });
           })
-          .catch(err => {
-            updateState({
-              loading: false,
-              error: err.message
-            });
+          .catch(err => {            
+            updateState({ loading: false, error: err.message || "API error occurred" });
           });
+        break;
+      }
 
+      case ActionTypes.DELETE_REQUEST: {
+        const request = state.requests.find(r => r.id === action.payload.requestId);
+        if (!request) throw new Error("Request not found");
+
+        request.deleteRequest(state.currentUser);
+
+        updateState({
+          requests: state.requests.map(r => r.id === request.id ? request : r)
+        });
         break;
       }
       
-      // COMMENTS      
       case ActionTypes.ADD_COMMENT: {
         const comment = new Comment({
           id: Date.now(),
@@ -125,72 +97,50 @@ export function dispatch(action) {
           authorId: state.currentUser.id,
           text: action.payload.text
         });
-
-        updateState({
-          comments: [...state.comments, comment]
-        });
-
+        updateState({ comments: [...state.comments, comment] });
         break;
       }
 
       case ActionTypes.EDIT_COMMENT: {
-        const comment = state.comments.find(
-          c => c.id === action.payload.commentId
-        );
-
+        const comment = state.comments.find(c => c.id === action.payload.commentId);
         if (!comment) throw new Error("Comment not found");
 
         comment.editComment(action.payload.text, state.currentUser);
-
-        updateState({
-          comments: [...state.comments]
-        });
-
+        updateState({ comments: [...state.comments] });
         break;
       }
 
-      case ActionTypes.ARCHIVE_COMMENT: {
-        const comment = state.comments.find(
-          c => c.id === action.payload.commentId
-        );
-
+      case ActionTypes.DELETE_COMMENT: {
+        const comment = state.comments.find(c => c.id === action.payload.commentId);
         if (!comment) throw new Error("Comment not found");
 
-        comment.archiveComment();
+        comment.deleteComment(state.currentUser);
 
         updateState({
-          comments: [...state.comments]
+          comments: state.comments.map(c => c.id === comment.id ? comment : c)
         });
-
         break;
       }
 
-      // LOGIN USER (prijeti identity z IR08)
       case ActionTypes.LOGIN_USER: {
-        updateState({
-          currentUser: action.payload.user,
-          isAuthenticated: true
-        });
+        updateState({ currentUser: action.payload.user });
+        break;
+      }
 
+      case ActionTypes.LOGOUT_USER: {
+        updateState({ currentUser: null, currentRoute: "home" });
         break;
       }
       
-      // NAVIGATION (IR04)      
       case ActionTypes.NAVIGATE: {
-        updateState({
-          currentRoute: action.payload.path
-        });
-
+        updateState({ currentRoute: action.payload.path });
         break;
       }
 
       default:
         console.warn("Unknown action:", action.type);
     }
-
   } catch (err) {
-    updateState({
-      error: err.message
-    });
+    updateState({ error: err.message });
   }
 }

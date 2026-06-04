@@ -4,7 +4,6 @@ import { ActionTypes } from "../../actions/actionTypes.js";
 export function initRouter() {
     const sync = () => {
         const path = window.location.hash.replace("#", "") || "home";
-
         dispatch({
             type: ActionTypes.NAVIGATE,
             payload: { path }

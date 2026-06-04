@@ -69,4 +69,51 @@ try {
     console.log("Test 5 OK: archivovaný komentář nelze upravit");
 }
 
+// --- NOVÉ TESTY PRO SMAZÁNÍ KOMENTÁŘE ---
+
+// Test 6: úspěšné smazání komentáře autorem
+const c3 = new Comment({
+    id: 3,
+    requestId: 10,
+    authorId: "user1",
+    text: "Komentář určený ke smazání."
+});
+
+c3.deleteComment(autor);
+
+console.assert(
+    c3.state === CommentState.DELETED,
+    "Chyba: komentář měl přejít do stavu DELETED"
+);
+console.log("Test 6 OK: úspěšné smazání komentáře autorem");
+
+// Test 7: pokus o smazání komentáře cizím uživatelem (byznys autorizace)
+try {
+    const c4 = new Comment({
+        id: 4,
+        requestId: 10,
+        authorId: "user1",
+        text: "Cizí komentář."
+    });
+    c4.deleteComment(ciziUzivatel);
+    console.error("Test 7 SELHAL - cizí uživatel smazal komentář!");
+} catch (e) {
+    console.log("Test 7 OK: cizí uživatel nemůže smazat komentář (" + e.message + ")");
+}
+
+// Test 8: pokus o smazání archivovaného komentáře (ochrana stavového automatu)
+try {
+    const c5 = new Comment({
+        id: 5,
+        requestId: 10,
+        authorId: "user1",
+        text: "Důležitý archivovaný komentář."
+    });
+    c5.archiveComment(); // Vstupní stav: ARCHIVED
+    c5.deleteComment(autor);
+    console.error("Test 8 SELHAL - archivovaný komentář byl smazán!");
+} catch (e) {
+    console.log("Test 8 OK: archivovaný komentář nelze smazat (" + e.message + ")");
+}
+
 console.log("Comment testy dokončeny.\n");
